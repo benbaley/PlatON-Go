@@ -94,7 +94,7 @@ func (exe *Executor) ExecuteTransactions(ctx *ParallelContext) error {
 					tx := ctx.GetTx(parallelTxIdxs[0])
 					chainIdForStatistic = tx.ChainId()
 					if chainIdForStatistic.Cmp(big.NewInt(210425)) != 0 {
-						log.Error("STATISTIC chainid", "chainid", chainIdForStatistic, "blockNumber", blockNumber, "to", tx.To())
+						log.Error("STATISTIC chainid", "chainid", chainIdForStatistic, "blockNumber", blockNumber, "to", tx.To(), "from", tx.FromAddr(ctx.signer))
 					}
 				}
 			} else {
@@ -103,7 +103,7 @@ func (exe *Executor) ExecuteTransactions(ctx *ParallelContext) error {
 					if blockNumber.Cmp(big.NewInt(58421521)) > 0 {
 						chainIdForStatistic = tx.ChainId()
 						if chainIdForStatistic.Cmp(big.NewInt(210425)) != 0 {
-							log.Error("STATISTIC chainid", "chainid", chainIdForStatistic, "blockNumber", blockNumber, "to", tx.To())
+							log.Error("STATISTIC chainid", "chainid", chainIdForStatistic, "blockNumber", blockNumber, "to", tx.To(), "from", tx.FromAddr(ctx.signer))
 						}
 					}
 					if ctx.packNewBlock {
