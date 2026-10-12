@@ -72,6 +72,12 @@ func (v *BlockValidator) ValidateBody(block *types.Block) error {
 	if hash := types.DeriveSha(block.Transactions(), trie.NewStackTrie(nil)); hash != header.TxHash {
 		return fmt.Errorf("transaction root hash mismatch (header value %x, calculated %x)", header.TxHash, hash)
 	}
+	if header.WithdrawalsHash != nil || block.Withdrawals() != nil {
+		if hawking, certain := v.isHawkingEnabled(block); certain && !hawking {
+			return fmt.Errorf("withdrawals before hawking")
+		}
+	}
+	// Withdrawals are present after the Hawking fork.
 	if header.WithdrawalsHash != nil {
 		if hash := types.DeriveSha(block.Withdrawals(), trie.NewStackTrie(nil)); hash != *header.WithdrawalsHash {
 			return fmt.Errorf("withdrawals root hash mismatch (header value %x, calculated %x)", *header.WithdrawalsHash, hash)
@@ -80,10 +86,22 @@ func (v *BlockValidator) ValidateBody(block *types.Block) error {
 	return nil
 }
 
-// ValidateState validates the various changes that happen after a state
-// transition, such as amount of used gas, the receipt roots and the state root
-// itself. ValidateState returns a database batch if the validation was a success
-// otherwise nil and an error is returned.
+// isHawkingEnabled reports whether Hawking (FORKVERSION_1_6_0) rules apply to block.
+// certain is false when parent block or parent state cannot be loaded.
+func (v *BlockValidator) isHawkingEnabled(block *types.Block) (enabled, certain bool) {
+	num := block.NumberU64()
+	if num == 0 {
+		return false, true
+	}
+	parent := v.bc.GetBlock(block.ParentHash(), num-1)
+	if parent == nil {
+		return false, false
+	}
+	return consensus.IsHawkingEnabled(v.config, block.Number(), parent.Header(), v.bc.StateAt)
+}
+
+// ValidateState validates the various changes that happen after a state transition,
+// such as amount of used gas, the receipt roots and the state root itself.
 func (v *BlockValidator) ValidateState(block *types.Block, statedb *state.StateDB, receipts types.Receipts, usedGas uint64) error {
 	header := block.Header()
 	if block.GasUsed() != usedGas {
