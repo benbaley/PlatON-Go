@@ -365,10 +365,10 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	)
 
 	// Check whether the init code size has been exceeded.
-	dirac := gov.NewGov(st.evm.SnapshotDB).Gte160VersionState(st.state)
+	hawking := gov.NewGov(st.evm.SnapshotDB).Gte160VersionState(st.state)
 
 	// Check clauses 4-5, subtract intrinsic gas if everything is correct
-	gas, err := IntrinsicGas(st.data, st.msg.AccessList(), contractCreation, dirac)
+	gas, err := IntrinsicGas(st.data, st.msg.AccessList(), contractCreation, hawking)
 	if err != nil {
 		return nil, err
 	}
@@ -383,7 +383,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	}
 
 	// Set up the initial access list.
-	if dirac && contractCreation && len(st.data) > params.MaxInitCodeSize {
+	if hawking && contractCreation && len(st.data) > params.MaxInitCodeSize {
 		return nil, fmt.Errorf("%w: code size %v limit %v", ErrMaxInitCodeSizeExceeded, len(st.data), params.MaxInitCodeSize)
 	}
 
@@ -408,8 +408,8 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	// - prepare accessList(post-berlin)
 	// - reset transient storage(eip 1153)
 	rules := params.Rules{
-		IsPauli: pauli,
-		IsDirac: dirac,
+		IsPauli:   pauli,
+		IsHawking: hawking,
 	}
 	st.state.Prepare(rules, msg.From(), st.evm.Context.Coinbase, msg.To(), vm.ActivePrecompiles(st.state), msg.AccessList())
 

@@ -279,7 +279,7 @@ type TxPool struct {
 
 	eip2718 bool // Fork indicator whether we are using EIP-2718 type transactions.
 	eip1559 bool // Fork indicator whether we are using EIP-1559 type transactions.
-	dirac   bool // Fork indicator whether we are in the ETH's Shanghai stage.
+	hawking bool // Fork indicator whether we are in the 1.6.0 stage.
 
 	currentState  *state.StateDB // Current state in the blockchain head
 	pendingNonces *noncer        // Pending state tracking virtual nonces
@@ -356,9 +356,9 @@ func NewTxPool(config Config, chainconfig *params.ChainConfig, chain txPoolBlock
 				pool.signer = types.MakeSigner(chainconfig, currentBlock.Number(), gte150)
 			}
 			if gte160 := gov.NewGov(nil).Gte160VersionState(stateDB); gte160 {
-				pool.dirac = true
+				pool.hawking = true
 			} else {
-				pool.dirac = false
+				pool.hawking = false
 			}
 		}
 	}
@@ -747,7 +747,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		return ErrOversizedData
 	}
 	// Check whether the init code size has been exceeded.
-	if pool.dirac && tx.To() == nil && len(tx.Data()) > params.MaxInitCodeSize {
+	if pool.hawking && tx.To() == nil && len(tx.Data()) > params.MaxInitCodeSize {
 		return fmt.Errorf("%w: code size %v limit %v", core.ErrMaxInitCodeSizeExceeded, len(tx.Data()), params.MaxInitCodeSize)
 	}
 	// Transactions can't be negative. This may never happen using RLP decoded
@@ -789,7 +789,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	if pool.currentState.GetBalance(from).Cmp(tx.Cost()) < 0 {
 		return core.ErrInsufficientFunds
 	}
-	intrGas, err := core.IntrinsicGas(tx.Data(), tx.AccessList(), tx.To() == nil, pool.dirac)
+	intrGas, err := core.IntrinsicGas(tx.Data(), tx.AccessList(), tx.To() == nil, pool.hawking)
 	if err != nil {
 		return err
 	}
@@ -1515,9 +1515,9 @@ func (pool *TxPool) resetSigner(blockNumber *big.Int, statedb *state.StateDB) {
 	pool.cacheAccountNeedPromoted.signer = pool.signer
 	gte160 := gov.NewGov(nil).Gte160VersionState(statedb)
 	if gte160 {
-		pool.dirac = true
+		pool.hawking = true
 	} else {
-		pool.dirac = false
+		pool.hawking = false
 	}
 }
 
