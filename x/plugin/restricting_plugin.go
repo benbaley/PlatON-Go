@@ -74,7 +74,7 @@ func (rp *RestrictingPlugin) EndBlock(blockHash common.Hash, head *types.Header,
 	if xutil.IsEndOfEpoch(head.Number.Uint64()) {
 		expect := xutil.CalculateEpoch(head.Number.Uint64())
 		rp.log.Info("begin to release restricting plan", "currentHash", blockHash, "currBlock", head.Number, "expectBlock", head.Number, "expectEpoch", expect)
-		if err := rp.releaseRestricting(expect, state); err != nil {
+		if err := rp.releaseRestricting(expect, head.Number.Uint64(), state); err != nil {
 			return err
 		}
 		if ok, _ := xcom.IsYearEnd(blockHash, head.Number.Uint64()); ok {
@@ -139,6 +139,31 @@ func (rp *RestrictingPlugin) hawkingRestrictingSettlement(number *big.Int, state
 		return false
 	}
 	return gov.NewGov(rp.db).Gte160VersionState(state)
+}
+
+// payUnscheduledRestrictingBalance pays Cache-Advance that no remaining release
+// epoch will pay. After Hawking, debt settled by a new deposit is omitted from
+// ReleaseList, so returned principal would otherwise stay in the contract.
+func (rp *RestrictingPlugin) payUnscheduledRestrictingBalance(blockNumber uint64, account common.Address, info *restricting.RestrictingInfo, state xcom.StateDB) {
+	if info == nil || !rp.hawkingRestrictingSettlement(new(big.Int).SetUint64(blockNumber), state) {
+		return
+	}
+	if len(info.ReleaseList) != 0 || info.NeedRelease.Sign() > 0 {
+		return
+	}
+	free := new(big.Int).Sub(info.CachePlanAmount, info.AdvanceAmount)
+	if free.Sign() <= 0 {
+		return
+	}
+	pool := state.GetBalance(vm.RestrictingContractAddr)
+	if pool.Cmp(free) < 0 {
+		free = new(big.Int).Set(pool)
+	}
+	if free.Sign() <= 0 {
+		return
+	}
+	rp.transferAmount(state, vm.RestrictingContractAddr, account, free)
+	info.CachePlanAmount.Sub(info.CachePlanAmount, free)
 }
 
 // plansAfterDebt removes debt from the earliest epochs. Amounts fully used to
@@ -443,7 +468,7 @@ func (rp *RestrictingPlugin) MixAdvanceLockedFunds(account common.Address, amoun
 }
 
 // ReturnLockFunds transfer the money from the staking contract account to the restricting contract account
-func (rp *RestrictingPlugin) ReturnLockFunds(account common.Address, amount *big.Int, state xcom.StateDB) error {
+func (rp *RestrictingPlugin) ReturnLockFunds(account common.Address, amount *big.Int, blockNumber uint64, state xcom.StateDB) error {
 	amountCompareWithZero := amount.Cmp(common.Big0)
 	if amountCompareWithZero == 0 {
 		return nil
@@ -473,6 +498,10 @@ func (rp *RestrictingPlugin) ReturnLockFunds(account common.Address, amount *big
 		}
 	}
 	restrictInfo.AdvanceAmount.Sub(restrictInfo.AdvanceAmount, amount)
+	// A Hawking debt settlement pays the new deposit immediately and omits it
+	// from ReleaseList. The returned principal that no epoch will release must
+	// be paid out here, or it stays in the restricting contract forever.
+	rp.payUnscheduledRestrictingBalance(blockNumber, account, &restrictInfo, state)
 	// save restricting account info
 	if restrictInfo.AdvanceAmount.Cmp(common.Big0) == 0 &&
 		len(restrictInfo.ReleaseList) == 0 && restrictInfo.CachePlanAmount.Cmp(common.Big0) == 0 {
@@ -587,7 +616,7 @@ func (rp *RestrictingPlugin) storeAmount2ReleaseAmount(state xcom.StateDB, epoch
 }
 
 // releaseRestricting will release restricting plans on target epoch
-func (rp *RestrictingPlugin) releaseRestricting(epoch uint64, state xcom.StateDB) error {
+func (rp *RestrictingPlugin) releaseRestricting(epoch uint64, blockNumber uint64, state xcom.StateDB) error {
 	rp.log.Info("Call releaseRestricting begin", "epoch", epoch)
 	releaseEpochKey, numbers := rp.getReleaseEpochNumber(state, epoch)
 	if numbers == 0 {
@@ -637,6 +666,7 @@ func (rp *RestrictingPlugin) releaseRestricting(epoch uint64, state xcom.StateDB
 		// In general, the first epoch is released first.
 		// info.ReleaseList = info.ReleaseList[1:]
 		restrictInfo.RemoveEpoch(epoch)
+		rp.payUnscheduledRestrictingBalance(blockNumber, account, &restrictInfo, state)
 
 		if restrictInfo.CachePlanAmount.Cmp(common.Big0) == 0 {
 			if restrictInfo.NeedRelease.Cmp(common.Big0) == 0 || len(restrictInfo.ReleaseList) == 0 {
