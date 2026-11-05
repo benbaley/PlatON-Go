@@ -191,6 +191,7 @@ func newHandler(config *handlerConfig) (*handler, error) {
 		return h.chain.Engine().VerifyHeader(h.chain, header, true)
 	}
 	heighter := func() uint64 {
+		// Engine().CurrentBlock() can be nil before consensus has started.
 		if block := h.chain.Engine().CurrentBlock(); block != nil {
 			return block.NumberU64() + 1
 		}

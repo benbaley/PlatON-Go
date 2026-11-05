@@ -106,7 +106,7 @@ func Execute(code, input []byte, cfg *Config) ([]byte, *state.StateDB, error) {
 		vmenv   = NewEnv(cfg)
 		sender  = vm.AccountRef(cfg.Origin)
 		rules   = params.Rules{
-			IsPauli: gov.NewGov(snapshotdb.Instance()).Gte150VersionState(cfg.State),
+			IsPauli:   gov.NewGov(snapshotdb.Instance()).Gte150VersionState(cfg.State),
 			IsHawking: gov.NewGov(snapshotdb.Instance()).Gte160VersionState(cfg.State),
 		}
 	)
@@ -144,7 +144,7 @@ func Create(input []byte, cfg *Config) ([]byte, common.Address, uint64, error) {
 		vmenv  = NewEnv(cfg)
 		sender = vm.AccountRef(cfg.Origin)
 		rules  = params.Rules{
-			IsPauli: gov.NewGov(snapshotdb.Instance()).Gte150VersionState(cfg.State),
+			IsPauli:   gov.NewGov(snapshotdb.Instance()).Gte150VersionState(cfg.State),
 			IsHawking: gov.NewGov(snapshotdb.Instance()).Gte160VersionState(cfg.State),
 		}
 	)
@@ -178,7 +178,7 @@ func Call(address common.Address, input []byte, cfg *Config) ([]byte, uint64, er
 	sender := cfg.State.GetOrNewStateObject(cfg.Origin)
 	statedb := cfg.State
 	rules := params.Rules{
-		IsPauli: gov.NewGov(snapshotdb.Instance()).Gte150VersionState(statedb),
+		IsPauli:   gov.NewGov(snapshotdb.Instance()).Gte150VersionState(statedb),
 		IsHawking: gov.NewGov(snapshotdb.Instance()).Gte160VersionState(statedb),
 	}
 	// Execute the preparatory steps for state transition which includes:

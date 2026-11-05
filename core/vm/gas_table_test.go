@@ -44,7 +44,7 @@ var istanbulGasTableChainConfig = &params.ChainConfig{
 	EinsteinBlock:   big.NewInt(0),
 	HubbleBlock:     big.NewInt(0),
 	PauliBlock:      nil,
-	HawkingBlock:      nil,
+	HawkingBlock:    nil,
 	Cbft:            &params.CbftConfig{Period: 3},
 	GenesisVersion:  params.FORKVERSION_1_4_0,
 }
@@ -99,6 +99,13 @@ var eip2200Tests = []struct {
 }
 
 func TestEIP2200(t *testing.T) {
+	// EIP-2200 gas schedule is pre-Pauli / pre-EIP-2929. AllEthashProtocolChanges
+	// now boots at GenesisVersion >= 1.5.0 (Pauli), which selects the London
+	// jump table and panics without an access list. Pin the config to 1.4.0 so
+	// this test still exercises the original EIP-2200 costs.
+	cfg := *params.AllEthashProtocolChanges
+	cfg.GenesisVersion = params.FORKVERSION_1_4_0
+
 	for i, tt := range eip2200Tests {
 		address := common.BytesToAddress([]byte("contract"))
 

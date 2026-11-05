@@ -454,7 +454,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	// - prepare accessList(post-berlin)
 	// - reset transient storage(eip 1153)
 	rules := params.Rules{
-		IsPauli: pauli,
+		IsPauli:   pauli,
 		IsHawking: hawking,
 	}
 	st.state.Prepare(rules, msg.From(), st.evm.Context.Coinbase, msg.To(), vm.ActivePrecompiles(st.state), msg.AccessList())

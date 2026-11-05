@@ -14,7 +14,6 @@ import (
 
 func minerStart(t *testing.T) *Miner {
 	t.Helper()
-
 	cbft := consensus.NewFaker()
 
 	miner := &Miner{
@@ -33,18 +32,35 @@ func minerStart(t *testing.T) *Miner {
 	miner.wg.Add(1)
 	go miner.update()
 
+	// Drain worker.startCh so worker.start() cannot block, and wait until the
+	// start signal is observed before returning.
+	started := make(chan struct{})
+	go func() {
+		select {
+		case <-miner.worker.startCh:
+			t.Log("Start miner done")
+			close(started)
+		case <-time.After(2 * time.Second):
+			t.Error("Start miner timeout")
+			close(started)
+		}
+	}()
+
 	miner.Start()
+	select {
+	case <-started:
+	case <-time.After(2 * time.Second):
+		t.Fatal("waiting for miner start timed out")
+	}
+
+	t.Cleanup(func() {
+		miner.Close()
+	})
 	return miner
 }
 
 func TestMiner_Start(t *testing.T) {
 	miner := minerStart(t)
-	defer miner.Close()
-
-	deadline := time.Now().Add(2 * time.Second)
-	for !miner.Mining() && time.Now().Before(deadline) {
-		time.Sleep(10 * time.Millisecond)
-	}
 	assert.True(t, miner.Mining())
 }
 
@@ -57,15 +73,22 @@ func TestMiner_Stop(t *testing.T) {
 		exitCh:  make(chan struct{}),
 		startCh: make(chan struct{}),
 		stopCh:  make(chan struct{}),
-		worker:  &worker{
-			//startCh: make(chan struct{}),
+		worker: &worker{
+			startCh: make(chan struct{}),
+			exitCh:  make(chan struct{}),
 		},
 	}
 	miner.worker.running.Store(true)
+	miner.wg.Add(1)
 	go miner.update()
+	t.Cleanup(func() {
+		miner.Close()
+	})
 
 	miner.Stop()
-	assert.False(t, miner.worker.running.Load(),
+	assert.Eventually(t, func() bool {
+		return !miner.worker.running.Load()
+	}, time.Second, 10*time.Millisecond,
 		fmt.Sprintf("After Stop, the worker flag `running` expect false, got %v", miner.worker.running.Load()))
 }
 
@@ -76,19 +99,49 @@ func TestMiner_Mining(t *testing.T) {
 }
 
 func TestMiner_Close(t *testing.T) {
-	miner := minerStart(t)
+	cbft := consensus.NewFaker()
+	miner := &Miner{
+		engine:  cbft,
+		mux:     new(event.TypeMux),
+		exitCh:  make(chan struct{}),
+		startCh: make(chan struct{}),
+		stopCh:  make(chan struct{}),
+		worker: &worker{
+			startCh:            make(chan struct{}),
+			exitCh:             make(chan struct{}),
+			resubmitIntervalCh: make(chan time.Duration),
+		},
+	}
+	miner.wg.Add(1)
+	go miner.update()
 
+	started := make(chan struct{})
+	go func() {
+		select {
+		case <-miner.worker.startCh:
+			close(started)
+		case <-time.After(2 * time.Second):
+			t.Error("Start miner timeout")
+			close(started)
+		}
+	}()
+	miner.Start()
+	<-started
+
+	done := make(chan struct{})
 	go func() {
 		select {
 		case <-miner.exitCh:
-
+			close(done)
 		case <-miner.worker.exitCh:
-
+			close(done)
 		case <-time.After(2 * time.Second):
 			t.Error("Close miner and worker timeout")
+			close(done)
 		}
 	}()
 	miner.Close()
+	<-done
 }
 
 func TestMiner_Pending(t *testing.T) {
@@ -111,14 +164,18 @@ func TestMiner_SetRecommitInterval(t *testing.T) {
 	defer miner.Close()
 	interval := 3 * time.Second
 
+	got := make(chan struct{})
 	go func() {
 		select {
 		case <-miner.worker.resubmitIntervalCh:
 			t.Log("receive the resubmit signal")
+			close(got)
 		case <-time.After(interval):
 			t.Error("resubmit timeout")
+			close(got)
 		}
 	}()
 
 	miner.SetRecommitInterval(interval)
+	<-got
 }

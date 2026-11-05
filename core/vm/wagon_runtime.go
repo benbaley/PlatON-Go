@@ -1035,6 +1035,8 @@ func CallerNonce(proc *exec.Process) uint64 {
 
 func Transfer(proc *exec.Process, dst uint32, amount uint32, len uint32) int32 {
 	ctx := proc.HostCtx().(*VMContext)
+	rejectWasmWriteInReadOnly(ctx)
+	limitWasmBuffer(ctx, len)
 	address := make([]byte, common.AddressLength)
 
 	_, err := proc.ReadAt(address, int64(dst))

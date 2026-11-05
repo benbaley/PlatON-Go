@@ -15,7 +15,6 @@
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 //go:build linux || darwin || netbsd || openbsd || solaris
-// +build linux darwin netbsd openbsd solaris
 
 package fdlimit
 
@@ -31,10 +30,7 @@ func Raise(max uint64) (uint64, error) {
 		return 0, err
 	}
 	// Try to update the limit to the max allowance
-	limit.Cur = limit.Max
-	if limit.Cur > max {
-		limit.Cur = max
-	}
+	limit.Cur = min(limit.Max, max)
 	if err := syscall.Setrlimit(syscall.RLIMIT_NOFILE, &limit); err != nil {
 		return 0, err
 	}
