@@ -297,7 +297,9 @@ func doTest(cmdline []string) {
 		csdb := build.MustLoadChecksums("build/checksums.txt")
 		tc.Root = build.DownloadGo(csdb, dlgoVersion)
 	}
-	gotest := tc.Go("test", "-tags=ckzg")
+	// One -tags flag. A later -tags replaces the earlier one, so ckzg and test
+	// must be passed together.
+	gotest := tc.Go("test", "-tags=ckzg,test")
 
 	// CI builders are slow; raise the per-binary timeout and keep package
 	// parallelism modest so tests do not starve and hit the deadline.
@@ -316,7 +318,6 @@ func doTest(cmdline []string) {
 	if *race {
 		gotest.Args = append(gotest.Args, "-race")
 	}
-	gotest.Args = append(gotest.Args, "-tags=test")
 	packages := []string{"./..."}
 	if len(flag.CommandLine.Args()) > 0 {
 		packages = flag.CommandLine.Args()

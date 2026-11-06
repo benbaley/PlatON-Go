@@ -37,9 +37,9 @@ type sigCache struct {
 }
 
 // MakeSigner returns a Signer based on the given chain config and block number.
-func MakeSigner(config *params.ChainConfig, blockNumber *big.Int, gte160 bool) Signer {
+func MakeSigner(config *params.ChainConfig, blockNumber *big.Int, gte170 bool) Signer {
 	var signer Signer
-	if config.IsPauli(blockNumber) && (gte160 || config.IsHawking(blockNumber)) {
+	if config.IsPauli(blockNumber) && (gte170 || config.IsGauss(blockNumber)) {
 		signer = NewCancunSigner(config.PIP7ChainID)
 	} else if config.IsPauli(blockNumber) {
 		signer = NewLondonSigner(config.PIP7ChainID)
@@ -60,9 +60,9 @@ func MakeSigner(config *params.ChainConfig, blockNumber *big.Int, gte160 bool) S
 //
 // Use this in transaction-handling code where the current block number is unknown. If you
 // have the current block number available, use MakeSigner instead.
-func LatestSigner(config *params.ChainConfig, gte160 bool) Signer {
+func LatestSigner(config *params.ChainConfig, gte170 bool) Signer {
 	if config.PIP7ChainID != nil {
-		if gte160 {
+		if gte170 {
 			return NewCancunSigner(config.PIP7ChainID)
 		}
 		if config.PauliBlock != nil {

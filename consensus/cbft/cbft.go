@@ -723,14 +723,18 @@ func (cbft *Cbft) verifyHeader(chain consensus.ChainReader, header *types.Header
 		return err
 	}
 
-	hawking, certain := consensus.IsHawkingEnabled(chain.Config(), header.Number, parent, consensus.StateAtFromChain(chain))
-	// Only reject post-fork fields when we are certain Hawking is not active.
+	stateAt := consensus.StateAtFromChain(chain)
+	hawking, certain := consensus.IsHawkingEnabled(chain.Config(), header.Number, parent, stateAt)
+	// Only reject post-fork fields when we are certain the fork is not active.
 	// During snap header sync, chain is a HeaderChain without StateAt; treating
-	// that as "before hawking" would falsely reject governance-activated headers.
+	// that as "before the fork" would falsely reject governance-activated headers.
 	if certain && !hawking {
 		if header.WithdrawalsHash != nil {
 			return fmt.Errorf("invalid withdrawalsHash before hawking")
 		}
+	}
+	gauss, gaussCertain := consensus.IsGaussEnabled(chain.Config(), header.Number, parent, stateAt)
+	if gaussCertain && !gauss {
 		if header.ExcessBlobGas != nil {
 			return fmt.Errorf("invalid excessBlobGas: have %d, expected nil", *header.ExcessBlobGas)
 		}
@@ -738,7 +742,7 @@ func (cbft *Cbft) verifyHeader(chain consensus.ChainReader, header *types.Header
 			return fmt.Errorf("invalid blobGasUsed: have %d, expected nil", *header.BlobGasUsed)
 		}
 	}
-	if hawking {
+	if gauss {
 		if err := misc.VerifyEIP4844Header(parent, header); err != nil {
 			return err
 		}

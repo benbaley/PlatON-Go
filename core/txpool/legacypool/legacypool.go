@@ -124,7 +124,7 @@ type LegacyPool struct {
 
 	eip2718 atomic.Bool // Fork indicator whether we are using EIP-2718 type transactions.
 	eip1559 atomic.Bool // Fork indicator whether we are using EIP-1559 type transactions.
-	hawking atomic.Bool // Fork indicator whether we are in the Hawking (1.6.0) stage.
+	gauss   atomic.Bool // Fork indicator whether we are in the Gauss (1.7.0) stage.
 
 	currentHead   atomic.Pointer[types.Header] // Current head of the blockchain
 	currentState  *state.StateDB               // Current state in the blockchain head
@@ -202,12 +202,10 @@ func New(config txpool.Config, chainconfig *params.ChainConfig, chain BlockChain
 				pool.eip1559.Store(true)
 				pool.signer = types.MakeSigner(chainconfig, currentBlock.Number, false)
 			}
-			gte160 := gov.NewGov(nil).Gte160VersionState(stateDB)
-			if gte160 && chainconfig.IsPauli(currentBlock.Number) {
-				pool.hawking.Store(true)
+			gaussOn := gov.NewGov(nil).Gte170VersionState(stateDB) || chainconfig.IsGauss(currentBlock.Number)
+			pool.gauss.Store(gaussOn)
+			if gaussOn {
 				pool.signer = types.MakeSigner(chainconfig, currentBlock.Number, true)
-			} else {
-				pool.hawking.Store(false)
 			}
 		}
 	}
@@ -611,7 +609,7 @@ func (pool *LegacyPool) validateTxBasics(tx *types.Transaction, local bool) erro
 		MinTip:  pool.gasTip.Load(),
 		EIP2718: pool.eip2718.Load(),
 		EIP1559: pool.eip1559.Load(),
-		Hawking: pool.hawking.Load(),
+		Gauss:   pool.gauss.Load(),
 	}
 	if local {
 		opts.MinTip = new(big.Int)
@@ -1421,13 +1419,9 @@ func (pool *LegacyPool) resetSigner(blockNumber *big.Int, statedb *state.StateDB
 		pool.eip2718.Store(false)
 		pool.eip1559.Store(false)
 	}
-	gte160 := gov.NewGov(nil).Gte160VersionState(statedb)
-	if gte160 && pool.chainconfig.IsPauli(blockNumber) {
-		pool.hawking.Store(true)
-	} else {
-		pool.hawking.Store(false)
-	}
-	pool.signer = types.MakeSigner(pool.chainconfig, blockNumber, gte160)
+	gaussOn := gov.NewGov(nil).Gte170VersionState(statedb) || pool.chainconfig.IsGauss(blockNumber)
+	pool.gauss.Store(gaussOn)
+	pool.signer = types.MakeSigner(pool.chainconfig, blockNumber, gaussOn)
 	pool.locals.signer = pool.signer
 	pool.cacheAccountNeedPromoted.signer = pool.signer
 }

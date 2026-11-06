@@ -22,7 +22,7 @@ import (
 
 // LookupInstructionSet returns the EVM instruction set implied by PlatON chain rules.
 // It follows the same jump-table tiers as NewEVMInterpreter when only block-number-based
-// rules apply (governance Gte150VersionState / Gte160VersionState are not visible here).
+// rules apply (governance Gte150VersionState / Gte170VersionState are not visible here).
 //
 // Other Rules flags (IsEIP155, IsCopernicus, IsNewton, IsEinstein, IsHubble) do not switch
 // the opcode JumpTable in this codebase: they affect precompile sets, CHAINID semantics,
@@ -30,7 +30,7 @@ import (
 // Istanbul/London/Shanghai is selected.
 func LookupInstructionSet(rules params.Rules) (JumpTable, error) {
 	switch {
-	case rules.IsHawking:
+	case rules.IsGauss:
 		return newCancunInstructionSet(), nil
 	case rules.IsPauli:
 		return newLondonInstructionSet(), nil

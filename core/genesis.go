@@ -63,12 +63,12 @@ type Genesis struct {
 
 	// These fields are used for consensus tests. Please don't use them
 	// in actual genesis blocks.
-	Number     uint64      `json:"number"`
-	GasUsed    uint64      `json:"gasUsed"`
-	ParentHash common.Hash `json:"parentHash"`
-	BaseFee    *big.Int    `json:"baseFeePerGas"`
-	ExcessBlobGas *uint64  `json:"excessBlobGas"` // EIP-4844
-	BlobGasUsed   *uint64  `json:"blobGasUsed"`   // EIP-4844
+	Number        uint64      `json:"number"`
+	GasUsed       uint64      `json:"gasUsed"`
+	ParentHash    common.Hash `json:"parentHash"`
+	BaseFee       *big.Int    `json:"baseFeePerGas"`
+	ExcessBlobGas *uint64     `json:"excessBlobGas"` // EIP-4844
+	BlobGasUsed   *uint64     `json:"blobGasUsed"`   // EIP-4844
 }
 
 // GenesisAlloc specifies the initial state that is part of the genesis block.
@@ -85,16 +85,16 @@ type GenesisAccount struct {
 
 // field type overrides for gencodec
 type genesisSpecMarshaling struct {
-	Nonce     hexutil.Bytes
-	Timestamp math.HexOrDecimal64
-	ExtraData hexutil.Bytes
-	GasLimit  math.HexOrDecimal64
-	GasUsed   math.HexOrDecimal64
-	Number    math.HexOrDecimal64
-	BaseFee   *math.HexOrDecimal256
+	Nonce         hexutil.Bytes
+	Timestamp     math.HexOrDecimal64
+	ExtraData     hexutil.Bytes
+	GasLimit      math.HexOrDecimal64
+	GasUsed       math.HexOrDecimal64
+	Number        math.HexOrDecimal64
+	BaseFee       *math.HexOrDecimal256
 	ExcessBlobGas *math.HexOrDecimal64
 	BlobGasUsed   *math.HexOrDecimal64
-	Alloc     map[common.Address]GenesisAccount
+	Alloc         map[common.Address]GenesisAccount
 }
 
 type genesisAccountMarshaling struct {
@@ -554,7 +554,7 @@ func (g *Genesis) ToBlock(db ethdb.Database, sdb snapshotdb.BaseDB) *types.Block
 			head.BaseFee = new(big.Int).SetUint64(params.InitialBaseFee)
 		}
 	}
-	if g.Config != nil && g.Config.IsHawking(head.Number) {
+	if g.Config != nil && g.Config.IsGauss(head.Number) {
 		head.ExcessBlobGas = g.ExcessBlobGas
 		head.BlobGasUsed = g.BlobGasUsed
 		if head.ExcessBlobGas == nil {

@@ -97,3 +97,20 @@ func TestHawkingRequiresPauli(t *testing.T) {
 		t.Errorf("expected rules at block 20 to be hawking")
 	}
 }
+
+func TestGaussRequiresHawking(t *testing.T) {
+	c := &ChainConfig{
+		PauliBlock:   big.NewInt(10),
+		HawkingBlock: big.NewInt(20),
+		GaussBlock:   big.NewInt(30),
+	}
+	if c.IsGauss(big.NewInt(25)) {
+		t.Errorf("expected block 25 to not be gauss before the gauss fork")
+	}
+	if !c.IsGauss(big.NewInt(30)) {
+		t.Errorf("expected block 30 to be gauss after pauli, hawking and gauss")
+	}
+	if r := c.Rules(big.NewInt(30)); !r.IsGauss || !r.IsHawking {
+		t.Errorf("expected rules at block 30 to be hawking and gauss")
+	}
+}

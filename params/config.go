@@ -117,6 +117,7 @@ var (
 		HubbleBlock:     big.NewInt(1),
 		PauliBlock:      big.NewInt(1),
 		HawkingBlock:    big.NewInt(1),
+		GaussBlock:      big.NewInt(1),
 		Cbft: &CbftConfig{
 			InitialNodes:  ConvertNodeUrl(initialTestnetConsensusNodes),
 			Amount:        10,
@@ -147,6 +148,7 @@ var (
 		HubbleBlock:     big.NewInt(0),
 		PauliBlock:      big.NewInt(0),
 		HawkingBlock:    big.NewInt(0),
+		GaussBlock:      big.NewInt(0),
 		Cbft: &CbftConfig{
 			Period: 3,
 		},
@@ -158,7 +160,7 @@ var (
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), PrivatePIP7ChainID, "lat", "", big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), &CbftConfig{Period: 3}, FORKVERSION_1_5_0, false, sync.RWMutex{}}
+	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), PrivatePIP7ChainID, "lat", "", big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), &CbftConfig{Period: 3}, FORKVERSION_1_5_0, false, sync.RWMutex{}}
 
 	PrivatePIP7ChainID = new(big.Int).SetUint64(2203181)
 
@@ -196,6 +198,7 @@ type ChainConfig struct {
 	HubbleBlock     *big.Int `json:"hubbleBlock,omitempty"`
 	PauliBlock      *big.Int `json:"pauliBlock,omitempty"`
 	HawkingBlock    *big.Int `json:"hawkingBlock,omitempty"`
+	GaussBlock      *big.Int `json:"gaussBlock,omitempty"`
 
 	// Various consensus engines
 	Cbft *CbftConfig `json:"cbft,omitempty"`
@@ -218,7 +221,7 @@ func (c *ChainConfig) String() string {
 	default:
 		engine = "unknown"
 	}
-	return fmt.Sprintf("{ChainID: %v  PIP7ChainID: %v EIP155: %v Copernicus: %v newton: %v einstein: %v  hubble: %v Pauli: %v Hawking: %v Engine: %v }",
+	return fmt.Sprintf("{ChainID: %v  PIP7ChainID: %v EIP155: %v Copernicus: %v newton: %v einstein: %v  hubble: %v Pauli: %v Hawking: %v Gauss: %v Engine: %v }",
 		c.ChainID,
 		c.PIP7ChainID,
 		c.EIP155Block,
@@ -228,6 +231,7 @@ func (c *ChainConfig) String() string {
 		c.HubbleBlock,
 		c.PauliBlock,
 		c.HawkingBlock,
+		c.GaussBlock,
 		engine,
 	)
 }
@@ -279,6 +283,23 @@ func (c *ChainConfig) IsHawking(num *big.Int) bool {
 		return false
 	}
 	return c.GenesisVersion >= FORKVERSION_1_6_0 || isForked(c.HawkingBlock, num)
+}
+
+// IsGauss reports whether 1.7.0 rules apply at num.
+// Pauli and Hawking must already be active. GaussBlock or a 1.7.0 genesis version enables it.
+// Fork checks are inlined so this does not re-lock the mutex.
+func (c *ChainConfig) IsGauss(num *big.Int) bool {
+	c.RWMutex.RLock()
+	defer c.RWMutex.RUnlock()
+	pauli := c.GenesisVersion >= FORKVERSION_1_5_0 || isForked(c.PauliBlock, num)
+	if !pauli {
+		return false
+	}
+	hawking := c.GenesisVersion >= FORKVERSION_1_6_0 || isForked(c.HawkingBlock, num)
+	if !hawking {
+		return false
+	}
+	return c.GenesisVersion >= FORKVERSION_1_7_0 || isForked(c.GaussBlock, num)
 }
 
 func (c *ChainConfig) GetPauliBlock() *big.Int {
@@ -382,6 +403,9 @@ func (c *ChainConfig) checkCompatible(newcfg *ChainConfig, head *big.Int) *Confi
 	if isForkIncompatible(c.HawkingBlock, newcfg.HawkingBlock, head) {
 		return newCompatError("hawking fork block", c.HawkingBlock, newcfg.HawkingBlock)
 	}
+	if isForkIncompatible(c.GaussBlock, newcfg.GaussBlock, head) {
+		return newCompatError("gauss fork block", c.GaussBlock, newcfg.GaussBlock)
+	}
 	return nil
 }
 
@@ -456,8 +480,8 @@ func (err *ConfigCompatError) Error() string {
 // Rules is a one time interface meaning that it shouldn't be used in between transition
 // phases.
 type Rules struct {
-	ChainID                                                                    *big.Int
-	IsEIP155, IsCopernicus, IsNewton, IsEinstein, IsHubble, IsPauli, IsHawking bool
+	ChainID                                                                             *big.Int
+	IsEIP155, IsCopernicus, IsNewton, IsEinstein, IsHubble, IsPauli, IsHawking, IsGauss bool
 }
 
 // Rules ensures c's ChainID is not nil.
@@ -475,5 +499,6 @@ func (c *ChainConfig) Rules(num *big.Int) Rules {
 		IsHubble:     c.IsHubble(num),
 		IsPauli:      c.IsPauli(num),
 		IsHawking:    c.IsHawking(num),
+		IsGauss:      c.IsGauss(num),
 	}
 }

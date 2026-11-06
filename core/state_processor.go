@@ -82,7 +82,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 			return nil, nil, 0, err
 		}
 	}
-	var signer = types.MakeSigner(p.config, header.Number, gov.NewGov(snapshotdb.Instance()).Gte160VersionState(statedb))
+	var signer = types.MakeSigner(p.config, header.Number, gov.NewGov(snapshotdb.Instance()).Gte170VersionState(statedb))
 
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions() {
@@ -191,7 +191,7 @@ func applyTransaction(msg types.Message, config *params.ChainConfig, bc ChainCon
 // for the transaction, gas used and an error if the transaction failed,
 // indicating the block was invalid.
 func ApplyTransaction(config *params.ChainConfig, bc ChainContext, gp *GasPool, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64, cfg vm.Config) (*types.Receipt, error) {
-	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number, gov.NewGov(snapshotdb.Instance()).Gte160VersionState(statedb)), header.BaseFee)
+	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number, gov.NewGov(snapshotdb.Instance()).Gte170VersionState(statedb)), header.BaseFee)
 	if err != nil {
 		return nil, err
 	}

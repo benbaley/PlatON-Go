@@ -91,10 +91,14 @@ func (v *BlockValidator) ValidateBody(block *types.Block) error {
 	} else if block.Withdrawals() != nil {
 		return fmt.Errorf("withdrawals present in block body")
 	}
-	// Blob transactions may be present after the Hawking fork.
+	// Blob transactions may be present after the Gauss fork.
+	gauss, gaussCertain := v.isGaussEnabled(block)
 	var blobs int
 	for _, tx := range block.Transactions() {
 		blobs += len(tx.BlobHashes())
+	}
+	if gaussCertain && !gauss && (header.BlobGasUsed != nil || blobs > 0) {
+		return fmt.Errorf("blobs before gauss")
 	}
 	if header.BlobGasUsed != nil {
 		if want := *header.BlobGasUsed / params.BlobTxBlobGasPerBlob; uint64(blobs) != want {
@@ -119,6 +123,18 @@ func (v *BlockValidator) isHawkingEnabled(block *types.Block) (enabled, certain 
 		return false, false
 	}
 	return consensus.IsHawkingEnabled(v.config, block.Number(), parent.Header(), v.bc.StateAt)
+}
+
+func (v *BlockValidator) isGaussEnabled(block *types.Block) (enabled, certain bool) {
+	num := block.NumberU64()
+	if num == 0 {
+		return false, true
+	}
+	parent := v.bc.GetBlock(block.ParentHash(), num-1)
+	if parent == nil {
+		return false, false
+	}
+	return consensus.IsGaussEnabled(v.config, block.Number(), parent.Header(), v.bc.StateAt)
 }
 
 // ValidateState validates the various changes that happen after a state transition,

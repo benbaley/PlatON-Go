@@ -114,6 +114,14 @@ func Gte160Version(version uint32) bool {
 	return version >= params.FORKVERSION_1_6_0
 }
 
+func (g *Gov) Gte170VersionState(state xcom.StateDB) bool {
+	return Gte170Version(g.GetCurrentActiveVersion(state))
+}
+
+func Gte170Version(version uint32) bool {
+	return version >= params.FORKVERSION_1_7_0
+}
+
 func SetEcParametersHash(state xcom.StateDB, rlpData []byte) {
 	pposHash := state.GetState(vm.StakingContractAddr, staking.GetPPOSHASHKey())
 	var buf bytes.Buffer

@@ -830,7 +830,7 @@ func (w *worker) makeEnv(parent *types.Block, header *types.Header, generateExtr
 	log.Debug("Prepare header extra", "data", hex.EncodeToString(extra), "num", header.Number)
 
 	env := &environment{
-		signer:     types.MakeSigner(w.chainConfig, header.Number, gov.NewGov(snapshotdb.Instance()).Gte160VersionState(state)),
+		signer:     types.MakeSigner(w.chainConfig, header.Number, gov.NewGov(snapshotdb.Instance()).Gte170VersionState(state)),
 		snapshotDB: snapshotdb.Instance(),
 		state:      state,
 		header:     header,
@@ -863,6 +863,14 @@ func (w *worker) commitTransaction(env *environment, tx *types.Transaction) ([]*
 
 	vmCfg := *w.chain.GetVMConfig()       // value copy
 	vmCfg.VmTimeoutDuration = w.vmTimeout // set vm execution smart contract timeout duration
+	if tx.Type() == types.BlobTxType {
+		if env.header.BlobGasUsed == nil {
+			return nil, fmt.Errorf("blob transaction before gauss")
+		}
+		if *env.header.BlobGasUsed+tx.BlobGas() > params.BlobTxMaxBlobGasPerBlock {
+			return nil, fmt.Errorf("max blob gas exceeded")
+		}
+	}
 	receipt, err := core.ApplyTransaction(w.chainConfig, w.chain, env.gasPool, env.state,
 		env.header, tx, &env.header.GasUsed, vmCfg)
 	if err != nil {
@@ -873,6 +881,9 @@ func (w *worker) commitTransaction(env *environment, tx *types.Transaction) ([]*
 	}
 	env.txs = append(env.txs, tx)
 	env.receipts = append(env.receipts, receipt)
+	if tx.Type() == types.BlobTxType {
+		*env.header.BlobGasUsed += tx.BlobGas()
+	}
 
 	return receipt.Logs, nil
 }
@@ -931,6 +942,21 @@ func (w *worker) prepareWork(genParams *generateParams) (*environment, error) {
 		}
 		gasCeil := core.CalcGasCeil(parent, snapshotdb.Instance())
 		header.GasLimit = core.CalcGasLimit1559(parentGasLimit, gasCeil)
+	}
+	// EIP-4844 header fields are required once Gauss is active. Excess blob gas
+	// is derived from the parent; blob gas used starts at zero and grows as blob
+	// transactions are packed.
+	if gauss, _ := consensus.IsGaussEnabled(w.chainConfig, header.Number, parent.Header(), w.chain.StateAt); gauss {
+		var parentExcess, parentUsed uint64
+		if v := parent.ExcessBlobGas(); v != nil {
+			parentExcess = *v
+		}
+		if v := parent.BlobGasUsed(); v != nil {
+			parentUsed = *v
+		}
+		excess := misc.CalcExcessBlobGas(parentExcess, parentUsed)
+		header.ExcessBlobGas = &excess
+		header.BlobGasUsed = new(uint64)
 	}
 
 	// BeginBlocker()

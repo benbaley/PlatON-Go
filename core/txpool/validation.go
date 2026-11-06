@@ -42,7 +42,7 @@ type ValidationOptions struct {
 	// PlatON fork indicators derived from governance state (see txpool resetSigner).
 	EIP2718 bool
 	EIP1559 bool
-	Hawking bool
+	Gauss   bool
 }
 
 // ValidateTransaction is a helper method to check whether a transaction is valid
@@ -68,11 +68,11 @@ func ValidateTransaction(tx *types.Transaction, blobs []kzg4844.Blob, commits []
 	if !opts.EIP1559 && tx.Type() == types.DynamicFeeTxType {
 		return fmt.Errorf("%w: type %d rejected, pool not yet in EIP-1559", core.ErrTxTypeNotSupported, tx.Type())
 	}
-	if !opts.Hawking && tx.Type() == types.BlobTxType {
-		return fmt.Errorf("%w: type %d rejected, pool not yet in Hawking", core.ErrTxTypeNotSupported, tx.Type())
+	if !opts.Gauss && tx.Type() == types.BlobTxType {
+		return fmt.Errorf("%w: type %d rejected, pool not yet in Gauss", core.ErrTxTypeNotSupported, tx.Type())
 	}
 	// Check whether the init code size has been exceeded
-	if opts.Hawking && tx.To() == nil && len(tx.Data()) > params.MaxInitCodeSize {
+	if opts.Gauss && tx.To() == nil && len(tx.Data()) > params.MaxInitCodeSize {
 		return fmt.Errorf("%w: code size %v, limit %v", core.ErrMaxInitCodeSizeExceeded, len(tx.Data()), params.MaxInitCodeSize)
 	}
 	// Transactions can't be negative. This may never happen using RLP decoded
@@ -101,7 +101,7 @@ func ValidateTransaction(tx *types.Transaction, blobs []kzg4844.Blob, commits []
 	}
 	// Ensure the transaction has more gas than the bare minimum needed to cover
 	// the transaction metadata
-	intrGas, err := core.IntrinsicGas(tx.Data(), tx.AccessList(), tx.To() == nil, opts.Hawking)
+	intrGas, err := core.IntrinsicGas(tx.Data(), tx.AccessList(), tx.To() == nil, opts.Gauss)
 	if err != nil {
 		return err
 	}

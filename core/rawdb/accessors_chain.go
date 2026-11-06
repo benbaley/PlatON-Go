@@ -585,7 +585,7 @@ func ReadReceipts(db ethdb.Reader, hash common.Hash, number uint64, config *para
 	}
 
 	var blobGasPrice *big.Int
-	if header != nil && header.ExcessBlobGas != nil && config.IsHawking(new(big.Int).SetUint64(number)) {
+	if header != nil && header.ExcessBlobGas != nil && config.IsGauss(new(big.Int).SetUint64(number)) {
 		blobGasPrice = misc.CalcBlobFee(*header.ExcessBlobGas)
 	}
 
