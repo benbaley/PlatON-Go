@@ -269,6 +269,9 @@ func (rmp *RewardMgrPlugin) HandleDelegatePerReward(blockHash common.Hash, block
 				continue
 			}
 			if !hawking {
+				// The payment above is the one legitimate payout. BeginBlock of
+				// the next epoch clears CurrentEpochDelegateReward without paying
+				// again, so this is not a shortfall.
 				continue
 			}
 		} else {
